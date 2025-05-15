@@ -1,0 +1,226 @@
+<!doctype html>
+<html>
+    <head>
+        <script src="https://aframe.io/releases/1.0.4/aframe.min.js"></script>
+        <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+        <script src="https://raw.githack.com/donmccurdy/aframe-extras/master/dist/aframe-extras.loaders.min.js"></script>
+        <script src="https://raw.githack.com/AR-js-org/studio-backend/master/src/modules/marker/tools/gesture-detector.js"></script>
+        <script src="https://raw.githack.com/AR-js-org/studio-backend/master/src/modules/marker/tools/gesture-handler.js"></script>
+        <style>
+            #video-container {
+                position: fixed;
+                top: 70px;
+                right: 10px;
+                width: 320px; 
+                height: 240px;
+                z-index: 999;
+                display: none;
+                background-color: black;
+                border: 2px solid white;
+            }
+            
+            #video-player {
+                width: 100%;
+                height: 100%;
+            }
+            
+            #video-button {
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                padding: 10px 15px;
+                background-color: rgba(0, 0, 0, 0.7);
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-size: 16px;
+                z-index: 1000;
+                cursor: pointer;
+                display: none; /* Inicialmente oculto */
+            }
+            
+            #close-button {
+                position: absolute;
+                top: 5px;
+                right: 5px;
+                background-color: red;
+                color: white;
+                border: none;
+                border-radius: 50%;
+                width: 30px;
+                height: 30px;
+                font-size: 16px;
+                cursor: pointer;
+                z-index: 1001;
+            }
+            
+            #description-container {
+                position: fixed;
+                top: 320px;
+                right: 10px;
+                width: 320px;
+                background-color: rgba(0, 0, 0, 0.7);
+                color: white;
+                padding: 15px;
+                border-radius: 5px;
+                font-family: Arial, sans-serif;
+                box-sizing: border-box;
+                z-index: 998;
+                display: none;
+                overflow: hidden;
+                max-height: 0;
+                transition: max-height 1s ease-in-out, padding 1s ease-in-out;
+            }
+            
+            #description-container.show {
+                display: block;
+                max-height: 300px;
+                padding: 15px;
+            }
+            
+            #description-title {
+                font-size: 18px;
+                font-weight: bold;
+                margin-bottom: 10px;
+            }
+            
+            #description-text {
+                font-size: 14px;
+                line-height: 1.5;
+            }
+        </style>
+    </head>
+
+    <body style="margin: 0; overflow: hidden;">
+        <!-- Botón para mostrar/ocultar el video (inicialmente oculto) -->
+        <button id="video-button">Mostrar Video</button>
+        
+        <!-- Contenedor del video -->
+        <div id="video-container">
+            <button id="close-button">X</button>
+            <video id="video-player" controls>
+                <!-- Reemplaza con la URL de tu video -->
+                <source src="https://ia800300.us.archive.org/17/items/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4" type="video/mp4">
+                Tu navegador no soporta videos HTML5.
+            </video>
+        </div>
+        
+        <!-- Contenedor para la descripción del video -->
+        <div id="description-container">
+            <div id="description-title">Acerca de este video</div>
+            <div id="description-text">
+                Este video muestra "Big Buck Bunny", un cortometraje de animación 3D creado por el Instituto Blender. 
+                Sigue las aventuras de un conejo gigante y bondadoso que se enfrenta a tres roedores que lo molestan 
+                y atacan a sus amigos animales. Esta obra maestra de animación demuestra las capacidades del software libre 
+                Blender para crear animaciones profesionales de alta calidad. El cortometraje combina humor y acción en 
+                una historia encantadora sobre la defensa de los amigos y la justicia.
+            </div>
+        </div>
+        
+        <a-scene
+            vr-mode-ui="enabled: false;"
+            loading-screen="enabled: false;"
+            renderer="logarithmicDepthBuffer: true;"
+            arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
+            id="scene"
+            embedded
+            gesture-detector
+        >
+            <a-assets>
+                <a-asset-item
+                    id="animated-asset"
+                    src="assets/asset.glb"
+                ></a-asset-item>
+            </a-assets>
+
+            <a-marker
+                id="animated-marker"
+                type="pattern"
+                preset="custom"
+                url="assets/marker.patt"
+                raycaster="objects: .clickable"
+                emitevents="true"
+                cursor="fuse: false; rayOrigin: mouse;"
+            >
+                <a-entity
+                    id="bowser-model"
+                    scale="1 1 1"
+                    animation-mixer="loop: repeat"
+                    gltf-model="#animated-asset"
+                    class="clickable"
+                    gesture-handler
+                ></a-entity>
+            </a-marker>
+
+            <a-entity camera></a-entity>
+        </a-scene>
+        
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const videoButton = document.getElementById('video-button');
+                const videoContainer = document.getElementById('video-container');
+                const videoPlayer = document.getElementById('video-player');
+                const closeButton = document.getElementById('close-button');
+                const marker = document.getElementById('animated-marker');
+                const descriptionContainer = document.getElementById('description-container');
+                let descriptionTimer;
+                
+                // Función para mostrar el video
+                videoButton.addEventListener('click', function() {
+                    if (videoContainer.style.display === 'none' || videoContainer.style.display === '') {
+                        videoContainer.style.display = 'block';
+                        videoButton.textContent = 'Ocultar Video';
+                        videoPlayer.play();
+                        
+                        // Mostrar la descripción con efecto
+                        descriptionContainer.classList.add('show');
+                        
+                        // Configurar temporizador para ocultar la descripción después de 10 segundos
+                        clearTimeout(descriptionTimer);
+                        descriptionTimer = setTimeout(function() {
+                            descriptionContainer.classList.remove('show');
+                        }, 10000);
+                    } else {
+                        videoContainer.style.display = 'none';
+                        videoButton.textContent = 'Mostrar Video';
+                        videoPlayer.pause();
+                        
+                        // Ocultar descripción
+                        descriptionContainer.classList.remove('show');
+                        clearTimeout(descriptionTimer);
+                    }
+                });
+                
+                // Función para cerrar el video con el botón X
+                closeButton.addEventListener('click', function() {
+                    videoContainer.style.display = 'none';
+                    videoButton.textContent = 'Mostrar Video';
+                    videoPlayer.pause();
+                    
+                    // Ocultar descripción
+                    descriptionContainer.classList.remove('show');
+                    clearTimeout(descriptionTimer);
+                });
+                
+                // Detectar cuando el marcador es encontrado
+                marker.addEventListener('markerFound', function() {
+                    console.log('Marcador encontrado');
+                    videoButton.style.display = 'block'; // Mostrar el botón de video
+                });
+                
+                // Detectar cuando el marcador se pierde
+                marker.addEventListener('markerLost', function() {
+                    console.log('Marcador perdido');
+                    videoButton.style.display = 'none'; // Ocultar el botón de video
+                    videoContainer.style.display = 'none'; // Ocultar también el video
+                    videoButton.textContent = 'Mostrar Video';
+                    videoPlayer.pause(); // Pausar el video
+                    
+                    // Ocultar descripción
+                    descriptionContainer.classList.remove('show');
+                    clearTimeout(descriptionTimer);
+                });
+            });
+        </script>
+    </body>
+</html>

@@ -1,0 +1,465 @@
+<!doctype html>
+<html>
+    <head>
+        <script src="https://aframe.io/releases/1.0.4/aframe.min.js"></script>
+        <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+        <script src="https://raw.githack.com/donmccurdy/aframe-extras/master/dist/aframe-extras.loaders.min.js"></script>
+        <script src="https://raw.githack.com/AR-js-org/studio-backend/master/src/modules/marker/tools/gesture-detector.js"></script>
+        <script src="https://raw.githack.com/AR-js-org/studio-backend/master/src/modules/marker/tools/gesture-handler.js"></script>
+        <style>
+            #video-container {
+                position: fixed;
+                top: 70px;
+                right: 10px;
+                width: 320px; 
+                height: 240px;
+                z-index: 999;
+                display: none;
+                background-color: black;
+                border: 2px solid white;
+            }
+            
+            #video-player {
+                width: 100%;
+                height: 100%;
+            }
+            
+            #video-button {
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                padding: 10px 15px;
+                background-color: rgba(0, 0, 0, 0.7);
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-size: 16px;
+                z-index: 1000;
+                cursor: pointer;
+                display: none; /* Inicialmente oculto */
+            }
+            
+            #close-button {
+                position: absolute;
+                top: 5px;
+                right: 5px;
+                background-color: red;
+                color: white;
+                border: none;
+                border-radius: 50%;
+                width: 30px;
+                height: 30px;
+                font-size: 16px;
+                cursor: pointer;
+                z-index: 1001;
+            }
+            
+            #description-container {
+                position: fixed;
+                top: 320px;
+                right: 10px;
+                width: 320px;
+                background-color: rgba(0, 0, 0, 0.7);
+                color: white;
+                padding: 15px;
+                border-radius: 5px;
+                font-family: Arial, sans-serif;
+                box-sizing: border-box;
+                z-index: 998;
+                display: none;
+                overflow: hidden;
+                max-height: 0;
+                transition: max-height 1s ease-in-out, padding 1s ease-in-out;
+            }
+            
+            #description-container.show {
+                display: block;
+                max-height: 300px;
+                padding: 15px;
+            }
+            
+            #description-title {
+                font-size: 18px;
+                font-weight: bold;
+                margin-bottom: 10px;
+            }
+            
+            #description-text {
+                font-size: 14px;
+                line-height: 1.5;
+            }
+            
+            #speech-indicator {
+                position: fixed;
+                bottom: 20px;
+                left: 20px;
+                background-color: rgba(0, 0, 0, 0.7);
+                color: white;
+                padding: 10px 15px;
+                border-radius: 5px;
+                font-family: Arial, sans-serif;
+                font-size: 14px;
+                z-index: 1002;
+                display: none;
+            }
+            
+            #speech-indicator.listening {
+                display: block;
+                background-color: rgba(0, 128, 0, 0.7);
+            }
+            
+            #speech-indicator.processing {
+                display: block;
+                background-color: rgba(255, 165, 0, 0.7);
+            }
+            
+            #speech-indicator.error {
+                display: block;
+                background-color: rgba(255, 0, 0, 0.7);
+            }
+            
+            #voice-commands-info {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background-color: rgba(0, 0, 0, 0.7);
+                color: white;
+                padding: 10px 15px;
+                border-radius: 5px;
+                font-family: Arial, sans-serif;
+                font-size: 14px;
+                z-index: 1002;
+                display: none;
+            }
+            
+            #voice-commands-info.show {
+                display: block;
+            }
+        </style>
+    </head>
+
+    <body style="margin: 0; overflow: hidden;">
+        <!-- Botón para mostrar/ocultar el video (inicialmente oculto) -->
+        <button id="video-button">Mostrar Video</button>
+        
+        <!-- Contenedor del video -->
+        <div id="video-container">
+            <button id="close-button">X</button>
+            <video id="video-player" controls>
+                <!-- Reemplaza con la URL de tu video -->
+                <source src="motor-4t.mp4" type="video/mp4">
+                Tu navegador no soporta videos HTML5.
+            </video>
+        </div>
+        
+        <!-- Contenedor para la descripción del video -->
+        <div id="description-container">
+            <div id="description-title">Acerca de este video</div>
+            <div id="description-text">
+                El Modelo 3d es un motor de 4 tiempos  de combusti&oacute;n interna que completa su ciclo de trabajo en cuatro fases separadas: admisi&oacute;n, compresi&oacute;n, explosi&oacute;n y escape, es comun en autom&oacute;viles, motocicletas y embarcaciones.
+            </div>
+        </div>
+        
+        <!-- Indicador de reconocimiento de voz -->
+        <div id="speech-indicator">Escuchando...</div>
+        
+        <!-- Información de comandos de voz -->
+        <div id="voice-commands-info" class="show">
+            <strong>Comandos de voz disponibles:</strong><br>
+            "Reproduce el video" - Reproduce el video<br>
+            "Dime las características" - Lee la descripción<br>
+            "Pausa el video" - Pausa la reproducción<br>
+            "Detén la lectura" - Detiene la narración
+        </div>
+        
+        <a-scene
+            vr-mode-ui="enabled: false;"
+            loading-screen="enabled: false;"
+            renderer="logarithmicDepthBuffer: true;"
+            arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
+            id="scene"
+            embedded
+            gesture-detector
+        >
+            <a-assets>
+                <a-asset-item
+                    id="animated-asset"
+                    src="assets/asset.glb"
+                ></a-asset-item>
+            </a-assets>
+
+            <a-marker
+                id="animated-marker"
+                type="pattern"
+                preset="custom"
+                url="assets/marker.patt"
+                raycaster="objects: .clickable"
+                emitevents="true"
+                cursor="fuse: false; rayOrigin: mouse;"
+            >
+                <a-entity
+                    id="bowser-model"
+                    scale="1 1 1"
+                    animation-mixer="loop: repeat"
+                    gltf-model="#animated-asset"
+                    class="clickable"
+                    gesture-handler
+                ></a-entity>
+            </a-marker>
+
+            <a-entity camera></a-entity>
+        </a-scene>
+        
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const videoButton = document.getElementById('video-button');
+                const videoContainer = document.getElementById('video-container');
+                const videoPlayer = document.getElementById('video-player');
+                const closeButton = document.getElementById('close-button');
+                const marker = document.getElementById('animated-marker');
+                const descriptionContainer = document.getElementById('description-container');
+                const descriptionText = document.getElementById('description-text');
+                const speechIndicator = document.getElementById('speech-indicator');
+                const voiceCommandsInfo = document.getElementById('voice-commands-info');
+                
+                let descriptionTimer;
+                let recognition;
+                let speechSynthesis = window.speechSynthesis;
+                let isSpeaking = false;
+                let utterance;
+                let isRecognitionActive = false;
+                
+                // Función para inicializar el reconocimiento de voz
+                function initSpeechRecognition() {
+                    try {
+                        window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                        recognition = new SpeechRecognition();
+                        recognition.lang = 'es-ES'; // Configura el idioma en español
+                        recognition.continuous = true;
+                        recognition.interimResults = false;
+                        
+                        recognition.onstart = function() {
+                            isRecognitionActive = true;
+                            speechIndicator.textContent = "Escuchando...";
+                            speechIndicator.className = "listening";
+                            setTimeout(() => {
+                                speechIndicator.style.display = "none";
+                            }, 3000);
+                        };
+                        
+                        recognition.onresult = function(event) {
+                            speechIndicator.style.display = "block";
+                            speechIndicator.textContent = "Procesando...";
+                            speechIndicator.className = "processing";
+                            
+                            const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
+                            console.log("Comando detectado:", transcript);
+                            
+                            // Comprobar comandos
+                            if (transcript.includes("reproduce el video") || transcript.includes("reproducir el video") || 
+                                transcript.includes("reproducir video") || transcript.includes("reproduce video")) {
+                                playVideo();
+                                speechIndicator.textContent = "Reproduciendo video...";
+                            } 
+                            else if (transcript.includes("dime las caracteristicas") || transcript.includes("leer características") || 
+                                     transcript.includes("dame detalles del motor") || transcript.includes("lee el texto")) {
+                                readDescription();
+                                speechIndicator.textContent = "Leyendo descripción...";
+                            }
+                            else if (transcript.includes("pausa") || transcript.includes("pausa el video") || 
+                                     transcript.includes("detén el video") || transcript.includes("para el video")) {
+                                pauseVideo();
+                                speechIndicator.textContent = "Video pausado";
+                            }
+                            else if (transcript.includes("detén la lectura") || transcript.includes("para la lectura") || 
+                                     transcript.includes("deja de leer")) {
+                                stopSpeaking();
+                                speechIndicator.textContent = "Lectura detenida";
+                            }
+                            
+                            setTimeout(() => {
+                                speechIndicator.style.display = "none";
+                            }, 2000);
+                        };
+                        
+                        recognition.onerror = function(event) {
+                            console.error("Error en reconocimiento de voz:", event.error);
+                            speechIndicator.textContent = "Error: " + event.error;
+                            speechIndicator.className = "error";
+                            setTimeout(() => {
+                                speechIndicator.style.display = "none";
+                                restartSpeechRecognition();
+                            }, 3000);
+                        };
+                        
+                        recognition.onend = function() {
+                            isRecognitionActive = false;
+                            restartSpeechRecognition();
+                        };
+                        
+                        // Iniciar el reconocimiento de voz
+                        recognition.start();
+                        console.log("Reconocimiento de voz iniciado");
+                    } catch (error) {
+                        console.error("Error al inicializar el reconocimiento de voz:", error);
+                        alert("Tu navegador no soporta el reconocimiento de voz o no has dado permisos necesarios.");
+                    }
+                }
+                
+                // Función para reiniciar el reconocimiento de voz si se detiene
+                function restartSpeechRecognition() {
+                    if (!isRecognitionActive) {
+                        try {
+                            setTimeout(() => {
+                                recognition.start();
+                            }, 100);
+                        } catch (error) {
+                            console.error("Error al reiniciar el reconocimiento de voz:", error);
+                        }
+                    }
+                }
+                
+                // Función para reproducir el video mediante comando de voz
+                function playVideo() {
+                    videoContainer.style.display = 'block';
+                    videoButton.textContent = 'Ocultar Video';
+                    videoPlayer.play();
+                    
+                    // Mostrar la descripción con efecto
+                    descriptionContainer.classList.add('show');
+                    
+                    // Configurar temporizador para ocultar la descripción después de 10 segundos
+                    clearTimeout(descriptionTimer);
+                    descriptionTimer = setTimeout(function() {
+                        descriptionContainer.classList.remove('show');
+                    }, 10000);
+                }
+                
+                // Función para pausar el video mediante comando de voz
+                function pauseVideo() {
+                    if (videoContainer.style.display === 'block') {
+                        videoPlayer.pause();
+                    }
+                }
+                
+                // Función para leer la descripción mediante comando de voz
+                function readDescription() {
+                    // Detener cualquier lectura en curso
+                    stopSpeaking();
+                    
+                    // Mostrar la descripción si no está visible
+                    descriptionContainer.classList.add('show');
+                    
+                    // Cancelar el temporizador para que no se oculte mientras se lee
+                    clearTimeout(descriptionTimer);
+                    
+                    // Crear un nuevo objeto de síntesis de voz
+                    utterance = new SpeechSynthesisUtterance(descriptionText.textContent);
+                    utterance.lang = 'es-ES';
+                    utterance.rate = 1.0;
+                    utterance.pitch = 1.0;
+                    
+                    // Evento para cuando termina la lectura
+                    utterance.onend = function() {
+                        isSpeaking = false;
+                        
+                        // Configurar temporizador para ocultar la descripción después de 3 segundos
+                        descriptionTimer = setTimeout(function() {
+                            descriptionContainer.classList.remove('show');
+                        }, 3000);
+                    };
+                    
+                    // Iniciar la lectura
+                    speechSynthesis.speak(utterance);
+                    isSpeaking = true;
+                }
+                
+                // Función para detener la lectura
+                function stopSpeaking() {
+                    if (isSpeaking) {
+                        speechSynthesis.cancel();
+                        isSpeaking = false;
+                    }
+                }
+                
+                // Función para mostrar el video (botón manual)
+                videoButton.addEventListener('click', function() {
+                    if (videoContainer.style.display === 'none' || videoContainer.style.display === '') {
+                        playVideo();
+                    } else {
+                        videoContainer.style.display = 'none';
+                        videoButton.textContent = 'Mostrar Video';
+                        videoPlayer.pause();
+                        
+                        // Ocultar descripción
+                        descriptionContainer.classList.remove('show');
+                        clearTimeout(descriptionTimer);
+                        
+                        // Detener cualquier lectura en curso
+                        stopSpeaking();
+                    }
+                });
+                
+                // Función para cerrar el video con el botón X
+                closeButton.addEventListener('click', function() {
+                    videoContainer.style.display = 'none';
+                    videoButton.textContent = 'Mostrar Video';
+                    videoPlayer.pause();
+                    
+                    // Ocultar descripción
+                    descriptionContainer.classList.remove('show');
+                    clearTimeout(descriptionTimer);
+                    
+                    // Detener cualquier lectura en curso
+                    stopSpeaking();
+                });
+                
+                // Detectar cuando el marcador es encontrado
+                marker.addEventListener('markerFound', function() {
+                    console.log('Marcador encontrado');
+                    videoButton.style.display = 'block'; // Mostrar el botón de video
+                    voiceCommandsInfo.classList.add('show'); // Mostrar información de comandos de voz
+                    
+                    // Iniciar reconocimiento de voz cuando se encuentra el marcador
+                    if (!isRecognitionActive) {
+                        initSpeechRecognition();
+                    }
+                });
+                
+                // Detectar cuando el marcador se pierde
+                marker.addEventListener('markerLost', function() {
+                    console.log('Marcador perdido');
+                    videoButton.style.display = 'none'; // Ocultar el botón de video
+                    videoContainer.style.display = 'none'; // Ocultar también el video
+                    videoButton.textContent = 'Mostrar Video';
+                    videoPlayer.pause(); // Pausar el video
+                    
+                    // Ocultar descripción
+                    descriptionContainer.classList.remove('show');
+                    clearTimeout(descriptionTimer);
+                    
+                    // Detener cualquier lectura en curso
+                    stopSpeaking();
+                    
+                    // Ocultar información de comandos de voz
+                    voiceCommandsInfo.classList.remove('show');
+                    
+                    // Detener reconocimiento de voz cuando se pierde el marcador
+                    if (recognition && isRecognitionActive) {
+                        try {
+                            recognition.stop();
+                            isRecognitionActive = false;
+                        } catch (error) {
+                            console.error("Error al detener el reconocimiento de voz:", error);
+                        }
+                    }
+                });
+                
+                // Ocultar indicador de voz después de 5 segundos
+                setTimeout(() => {
+                    voiceCommandsInfo.classList.remove('show');
+                }, 5000);
+            });
+        </script>
+    </body>
+</html>
